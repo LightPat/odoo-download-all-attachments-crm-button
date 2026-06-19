@@ -1,0 +1,16 @@
+<odoo>
+    <record id="crm_lead_view_form_download_attachments" model="ir.ui.view">
+        <field name="name">crm.lead.form.download.attachments</field>
+        <field name="model">crm.lead</field>
+        <field name="inherit_id" ref="crm.crm_lead_view_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//header" position="inside">
+                <button name="action_download_all_attachments"
+                        string="Download All Attachments"
+                        type="object"
+                        class="btn btn-primary"
+                        icon="fa-download"/>
+            </xpath>
+        </field>
+    </record>
+</odoo>
