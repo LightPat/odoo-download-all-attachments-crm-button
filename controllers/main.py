@@ -68,6 +68,7 @@ class DownloadAttachmentsController(http.Controller):
                 ("Content-Disposition", content_disposition(filename)),
                 ("Content-Length", str(len(data))),
                 ("Content-Transfer-Encoding", "binary"),
+                ("X-Accel-Buffering", "no"),
                 ("Pragma", "public"),
                 ("Expires", "0"),
                 ("Cache-Control", "must-revalidate, post-check=0, pre-check=0"),
