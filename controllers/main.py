@@ -35,7 +35,7 @@ class DownloadAttachmentsController(http.Controller):
             if not attachments:
                 # Return empty zip or a friendly message
                 zip_buffer = io.BytesIO()
-                with zipfile.ZipFile(zip_buffer, "w") as zf:
+                with zipfile.ZipFile(zip_buffer, "w") as _zf:
                     pass
                 zip_buffer.seek(0)
                 filename = f"{model.replace('.', '_')}_{res_id}_attachments.zip"
@@ -61,15 +61,18 @@ class DownloadAttachmentsController(http.Controller):
                             continue
 
             zip_buffer.seek(0)
+            data = zip_buffer.getvalue()
             filename = f"{model.replace('.', '_')}_{res_id}_attachments.zip"
-            return request.make_response(
-                zip_buffer.getvalue(),
-                headers=[
-                    ("Content-Type", "application/zip"),
-                    ("Content-Disposition", content_disposition(filename)),
-                    ("Content-Length", str(len(zip_buffer.getvalue()))),
-                ],
-            )
+            headers = [
+                ("Content-Type", "application/zip"),
+                ("Content-Disposition", content_disposition(filename)),
+                ("Content-Length", str(len(data))),
+                ("Content-Transfer-Encoding", "binary"),
+                ("Pragma", "public"),
+                ("Expires", "0"),
+                ("Cache-Control", "must-revalidate, post-check=0, pre-check=0"),
+            ]
+            return request.make_response(data, headers=headers)
 
         except Exception as e:
             # In production you might want better error handling / logging

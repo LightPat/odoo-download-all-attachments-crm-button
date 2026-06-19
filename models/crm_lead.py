@@ -9,5 +9,5 @@ class CrmLead(models.Model):
         return {
             "type": "ir.actions.act_url",
             "url": f"/web/binary/download_all_attachments/{self._name}/{self.id}",
-            "target": "self",
+            "target": "new",
         }
