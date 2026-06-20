@@ -1,5 +1,7 @@
 import base64
 import io
+import os
+import tempfile
 import zipfile
 
 from odoo import http
@@ -47,33 +49,58 @@ class DownloadAttachmentsController(http.Controller):
                     ],
                 )
 
-            zip_buffer = io.BytesIO()
-            with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zip_file:
-                for att in attachments:
-                    if att.datas:
-                        try:
-                            file_data = base64.b64decode(att.datas)
-                            # Use original filename (zip handles most special chars)
-                            name = att.name or f"attachment_{att.id}"
-                            zip_file.writestr(name, file_data)
-                        except Exception:
-                            # Skip problematic files
-                            continue
+            tempfile_path = None
+            try:
+                tmp_file = tempfile.NamedTemporaryFile(delete=False, suffix=".zip")
+                tempfile_path = tmp_file.name
+                with zipfile.ZipFile(tmp_file, "w", zipfile.ZIP_DEFLATED) as zip_file:
+                    for att in attachments:
+                        if att.datas:
+                            try:
+                                file_data = base64.b64decode(att.datas)
+                                name = att.name or f"attachment_{att.id}"
+                                zip_file.writestr(name, file_data)
+                            except Exception:
+                                continue
+                tmp_file.close()
 
-            zip_buffer.seek(0)
-            data = zip_buffer.getvalue()
-            filename = f"{model.replace('.', '_')}_{res_id}_attachments.zip"
-            headers = [
-                ("Content-Type", "application/zip"),
-                ("Content-Disposition", content_disposition(filename)),
-                ("Content-Length", str(len(data))),
-                ("Content-Transfer-Encoding", "binary"),
-                ("X-Accel-Buffering", "no"),
-                ("Pragma", "public"),
-                ("Expires", "0"),
-                ("Cache-Control", "must-revalidate, post-check=0, pre-check=0"),
-            ]
-            return request.make_response(data, headers=headers)
+                file_size = os.path.getsize(tempfile_path)
+                filename = f"{model.replace('.', '_')}_{res_id}_attachments.zip"
+                headers = [
+                    ("Content-Type", "application/zip"),
+                    ("Content-Disposition", content_disposition(filename)),
+                    ("Content-Length", str(file_size)),
+                    ("Content-Transfer-Encoding", "binary"),
+                    ("X-Accel-Buffering", "no"),
+                    ("Pragma", "public"),
+                    ("Expires", "0"),
+                    ("Cache-Control", "must-revalidate, post-check=0, pre-check=0"),
+                ]
+
+                def stream_file(file_path, chunk_size=1048576):
+                    try:
+                        with open(file_path, "rb") as chunk_file:
+                            while True:
+                                chunk = chunk_file.read(chunk_size)
+                                if not chunk:
+                                    break
+                                yield chunk
+                    finally:
+                        try:
+                            os.unlink(file_path)
+                        except Exception:
+                            pass
+
+                return request.make_response(
+                    stream_file(tempfile_path), headers=headers
+                )
+            except Exception:
+                if tempfile_path and os.path.exists(tempfile_path):
+                    try:
+                        os.unlink(tempfile_path)
+                    except Exception:
+                        pass
+                raise
 
         except Exception as e:
             # In production you might want better error handling / logging
